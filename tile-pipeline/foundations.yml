@@ -1,0 +1,27 @@
+# Opinonated pipleine for the number of foundations that changes would pass through will be living and breathing and grow over time.
+# All parameters are required.
+
+pcf-automation-version: v0.19.0
+pivnet_token: # pivotal network token to use to download artifacts.
+foundations:
+  sandbox:
+    iaas_type: # aws, openstack, vsphere
+    opsman:
+      domain_or_ip_address: # e.g. opsman.sandbox.cf.com
+      admin:
+        username: 
+        password: 
+  non-prod:
+    iaas_type: # aws
+    opsman:
+      domain_or_ip_address: # e.g. opsman.nonprod.cf.com
+      admin:
+        username: 
+        password: 
+  prod:
+    iaas_type: # openstack
+    opsman:
+      domain_or_ip_address: # e.g. opsman.prod.cf.com
+      admin:
+        username: 
+        password: 

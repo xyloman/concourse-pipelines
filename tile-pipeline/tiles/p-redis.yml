@@ -1,0 +1,3 @@
+product_slug: p-redis
+product_name: p-redis
+product_version_regex: 1.10.*
