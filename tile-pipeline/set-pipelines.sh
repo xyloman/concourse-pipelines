@@ -7,5 +7,5 @@ FILES=*
 for f in $FILES
 do
     echo "Creating tile pipeline based upon tile file $f..."
-    echo "fly -t $CONCOURSE_TARGET set-pipeline -p ${f%.*} -c ../foundations.yml -l $f" -n
+    fly -t $CONCOURSE_TARGET set-pipeline -p ${f%.*} -c ../pipeline.yml -l ../foundations.yml -l $f -n
 done
