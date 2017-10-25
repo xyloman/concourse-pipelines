@@ -42,6 +42,7 @@ jobs:
       OPSMAN_DOMAIN_OR_IP_ADDRESS: ((foundations.sandbox.opsman.domain_or_ip_address))
       OPSMAN_PASSWORD: ((foundations.sandbox.opsman.admin.password))
       OPSMAN_USERNAME: ((foundations.sandbox.opsman.admin.username))
+      PRODUCT_NAME: cf
   - task: apply-changes
     file: pcf-pipelines/tasks/apply-changes/task.yml
     params:
@@ -83,6 +84,7 @@ jobs:
       OPSMAN_DOMAIN_OR_IP_ADDRESS: ((foundations.non-prod.opsman.domain_or_ip_address))
       OPSMAN_PASSWORD: ((foundations.non-prod.opsman.admin.password))
       OPSMAN_USERNAME: ((foundations.non-prod.opsman.admin.username))
+      PRODUCT_NAME: cf
   - task: apply-changes
     file: pcf-pipelines/tasks/apply-changes/task.yml
     params:
@@ -124,6 +126,7 @@ jobs:
       OPSMAN_DOMAIN_OR_IP_ADDRESS: ((foundations.prod.opsman.domain_or_ip_address))
       OPSMAN_PASSWORD: ((foundations.prod.opsman.admin.password))
       OPSMAN_USERNAME: ((foundations.prod.opsman.admin.username))
+      PRODUCT_NAME: cf
   - task: apply-changes
     file: pcf-pipelines/tasks/apply-changes/task.yml
     params:
