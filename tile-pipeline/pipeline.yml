@@ -19,7 +19,7 @@ jobs:
       trigger: true
       resource: ((product_slug))
       params:
-        globs: ['*pivotal']
+        globs: [((product_globs_sandbox))]
   - task: wait-opsman-clear
     file: pcf-pipelines/tasks/wait-opsman-clear/task.yml
     params:
@@ -61,7 +61,7 @@ jobs:
       passed: [sandbox]
       resource: ((product_slug))
       params:
-        globs: ['*pivotal']
+        globs: [((product_globs))]
   - task: wait-opsman-clear
     file: pcf-pipelines/tasks/wait-opsman-clear/task.yml
     params:
@@ -103,7 +103,7 @@ jobs:
       passed: [non-prod]
       resource: ((product_slug))
       params:
-        globs: ['*pivotal']
+        globs: [((product_globs))]
   - task: wait-opsman-clear
     file: pcf-pipelines/tasks/wait-opsman-clear/task.yml
     params:

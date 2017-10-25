@@ -1,0 +1,5 @@
+product_slug: elastic-runtime
+product_name: cf
+product_version_regex: 1.12.*
+product_globs_sandbox: 'srt*'
+product_globs: 'cf*'
