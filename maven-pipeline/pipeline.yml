@@ -1,0 +1,288 @@
+maven-params: &maven-params
+  MAVEN_OPTS: ((maven.build.opts))
+  MAVEN_CONFIG: ((maven.build.config))
+  MAVEN_REPO_MIRROR: ((maven.mirror.url))
+  MAVEN_REPO_USERNAME: ((maven.mirror.username))
+  MAVEN_REPO_PASSWORD: ((maven.mirror.password))
+  MAVEN_REPO_CACHE_ENABLE: true
+
+jobs:
+
+- name: major
+  serial_groups: [version-mutex]
+  plan:
+  - get: version
+    params: {bump: major, pre: rc}
+  - put: version
+    params: {file: version/version}
+
+- name: minor
+  serial_groups: [version-mutex]
+  plan:
+  - get: version
+    params: {bump: minor, pre: rc}
+  - put: version
+    params: {file: version/version}
+
+- name: build
+  serial_groups: [version-mutex]
+  plan:
+  - aggregate:
+    - get: pipeline-tasks
+    - get: project
+      resource: source-repo
+      trigger: true
+    - get: version
+      params: {pre: rc}
+  - task: build
+    file: pipeline-tasks/build-maven-semver-cache/task.yml
+    params: {<<: *maven-params}
+  - aggregate:
+    - put: maven-milestone
+      params:
+        file: task-output/((git.repo-name))-*.jar
+        pom_file: project/pom.xml
+        version_file: version/version
+    - put: version
+      params: {file: version/version}
+
+- name: dev
+  plan:
+  - aggregate:
+    - get: pipeline-tasks
+    - get: project
+      resource: source-repo
+      passed: [build]
+    - get: version
+      passed: [build]
+    - get: artifact
+      resource: maven-milestone
+      passed: [build]
+      trigger: true
+  - task: generate-manifest
+    file: pipeline-tasks/generate-manifest/task.yml
+    params: ((cf-dev-app-manifest-params))
+  - put: cf-push
+    resource: cf-dev
+    params:
+      command: zero-downtime-push
+      manifest: task-output/manifest.yml
+      path: artifact/((git.repo-name))-*.jar
+      current_app_name: ((cf-dev-app-manifest-params.MF_NAME))
+
+- name: test
+  plan:
+  - aggregate:
+    - get: pipeline-tasks
+    - get: project
+      resource: source-repo
+      passed: [dev]
+    - get: version
+      passed: [dev]
+    - get: artifact
+      resource: maven-milestone
+      passed: [dev]
+  - task: generate-manifest
+    file: pipeline-tasks/generate-manifest/task.yml
+    params: ((cf-test-app-manifest-params))
+  - put: cf-push
+    resource: cf-test
+    params:
+      command: zero-downtime-push
+      manifest: task-output/manifest.yml
+      path: artifact/((git.repo-name))-*.jar
+      current_app_name: ((cf-test-app-manifest-params.MF_NAME))
+  - put: source-repo
+    params:
+      repository: project
+      only_tag: true
+      tag: version/version
+      tag_prefix: 'v'
+
+- name: ship-it
+  serial_groups: [version-mutex]
+  plan:
+  - aggregate:
+    - get: pipeline-tasks
+    - get: project
+      resource: source-repo
+      passed: [test]
+    - get: version
+      passed: [test]
+      params: {bump: final}
+    - get: artifact
+      resource: maven-milestone
+      passed: [test]
+  - aggregate:
+    - put: maven-release
+      params:
+        file: artifact/((git.repo-name))-*.jar
+        version_file: version/version
+    - put: version
+      params: {file: version/version}
+
+- name: github-release
+  plan:
+  - aggregate:
+    - get: pipeline-tasks
+    - get: project
+      resource: source-repo
+      passed: [ship-it]
+    - get: version
+      passed: [ship-it]
+    - get: artifact
+      resource: maven-release
+      passed: [ship-it]
+      trigger: true
+  - aggregate:
+    - task: generate-github-release
+      file: pipeline-tasks/generate-github-release/task.yml
+      output_mapping: {task-output: generate-github-release-output}
+    - task: generate-commitish
+      file: pipeline-tasks/generate-commitish/task.yml
+      output_mapping: {task-output: generate-commitish-output}
+  - put: github-release
+    params:
+      name: generate-github-release-output/release-name
+      tag: generate-github-release-output/release-tag
+      commitish: generate-commitish-output/commitish
+      globs: [artifact/((git.repo-name))-*.jar]
+
+- name: patch
+  serial_groups: [version-mutex]
+  plan:
+  - get: version
+    passed: [ship-it]
+    params: {bump: patch, pre: rc}
+    trigger: true
+  - put: version
+    params: {file: version/version}
+
+- name: stage
+  plan:
+  - aggregate:
+    - get: pipeline-tasks
+    - get: project
+      resource: source-repo
+      passed: [ship-it]
+    - get: version
+      passed: [ship-it]
+    - get: artifact
+      resource: maven-release
+      passed: [ship-it]
+      trigger: true
+  - task: generate-manifest
+    file: pipeline-tasks/generate-manifest/task.yml
+    params: ((cf-stage-app-manifest-params))
+  - put: cf-push
+    resource: cf-stage
+    params:
+      command: zero-downtime-push
+      manifest: task-output/manifest.yml
+      path: artifact/((git.repo-name))-*.jar
+      current_app_name: ((cf-stage-app-manifest-params.MF_NAME))
+
+- name: prod
+  plan:
+  - aggregate:
+    - get: pipeline-tasks
+    - get: project
+      resource: source-repo
+      passed: [stage]
+    - get: version
+      passed: [stage]
+    - get: artifact
+      resource: maven-release
+      passed: [stage]
+  - task: generate-manifest
+    file: pipeline-tasks/generate-manifest/task.yml
+    params: ((cf-prod-app-manifest-params))
+  - put: cf-push
+    resource: cf-prod
+    params:
+      command: zero-downtime-push
+      manifest: task-output/manifest.yml
+      path: artifact/((git.repo-name))-*.jar
+      current_app_name: ((cf-prod-app-manifest-params.MF_NAME))
+
+resources:
+
+- name: github-release
+  type: github-release
+  source:
+    owner: ((git.org))
+    repository: ((git.repo-name))
+    access_token: ((git.repo-access-token))
+    github_api_url: https://github.com/api/v3/
+    github_uploads_url: https://github.com/api/uploads/
+
+- name: source-repo
+  type: git
+  source:
+    uri: git@github.com:((git.org))/((git.repo-name)).git
+    branch: ((git.branch))
+    private_key: ((git.private-key))
+
+- name: pipeline-tasks
+  type: git
+  source:
+    uri: ((common.pipeline-tasks.git-uri))
+    branch: ((common.pipeline-tasks.git-branch))
+
+- name: version
+  type: semver
+  source:
+    driver: git
+    initial_version: ((common.semver.initial_version))
+    uri: git@github.com:((git.org))/((git.repo-name)).git
+    branch: ((common.semver.branch))
+    file: ((common.semver.file-name))
+    private_key: ((git.private-key))
+
+- name: cf-dev
+  type: cf-cli-resource
+  source: ((cf.dev))
+
+- name: cf-test
+  type: cf-cli-resource
+  source: ((cf.test))
+
+- name: cf-stage
+  type: cf-cli-resource
+  source: ((cf.stage))
+
+- name: cf-prod
+  type: cf-cli-resource
+  source: ((cf.prod))
+
+- name: maven-milestone
+  type: maven-resource
+  source:
+    url: ((maven.milestone.url))
+    artifact: ((maven.group-id)):((git.repo-name)):jar
+    username: ((maven.milestone.username))
+    password: ((maven.milestone.password))
+    skip_cert_check: ((maven.milestone.skip-ssl))
+
+- name: maven-release
+  type: maven-resource
+  source:
+    url: ((maven.release.url))
+    artifact: ((maven.group-id)):((git.repo-name)):jar
+    username: ((maven.release.username))
+    password: ((maven.release.password))
+    skip_cert_check: ((maven.release.skip-ssl))
+
+resource_types:
+
+- name: maven-resource
+  type: docker-image
+  source:
+    repository: pivotalpa/maven-resource
+    tag: 1.3.4
+
+- name: cf-cli-resource
+  type: docker-image
+  source:
+    repository: pivotalpa/cf-cli-resource
+    tag: 2.2.1
