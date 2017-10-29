@@ -1,0 +1,124 @@
+# TODO: Move these common-credentials into a separate location.
+# These are currently listed here for other developers to know what
+# needs to be included in their credentials.yml in order to run this pipeline
+common:
+  pipeline-tasks:
+    git-uri:  https://github.com/Pivotal-Field-Engineering/pipeline-tasks.git
+    git-branch: master
+  semver:
+    branch: version
+    file-name: version
+    initial_version: 1.0.0-rc.0
+# The rest of these params are user-defined
+
+# Base parameters for application's manifest.yml in all spaces.
+# You can override / extend this base for different spaces
+# in the key-value params below, e.g., cf-dev-app-manifest-params
+
+cf-app-manfiest-env-defaults: &cf-app-manifest-params-defaults
+  JBP_CONFIG_SPRING_AUTO_RECONFIGURATION: '[enabled: false]'
+  JAVA_OPTS: -Djava.security.egd=file:/dev/./urandom
+
+cf-app-manifest-params: &cf-app-manifest-params
+  MF_DOMAIN: apps.cf.com
+  MF_BUILDPACK: java_buildpack_offline
+  MF_SERVICES: # Services to bind your apps to:
+  - rabbitmq
+  - ...
+  - metrics
+  MF_ENV:
+    <<: *cf-app-manifest-params-defaults
+
+cf-dev-app-manifest-params:
+  <<: *cf-app-manifest-params
+  MF_NAME: # Name for your app.
+  MF_HOST: # Hostname (route) for app.
+  MF_ENV:
+    <<: *cf-app-manifest-params-defaults
+    SPRING_PROFILES_ACTIVE: # Active profiles in this space. e.g., dev,cloud
+
+cf-test-app-manifest-params:
+  <<: *cf-app-manifest-params
+  MF_NAME:  
+  MF_HOST: 
+  MF_ENV:
+    <<: *cf-app-manifest-params-defaults
+    SPRING_PROFILES_ACTIVE: # test,cloud
+
+cf-stage-app-manifest-params:
+  <<: *cf-app-manifest-params
+  MF_NAME:
+  MF_HOST:
+  MF_ENV:
+    <<: *cf-app-manifest-params-defaults
+    SPRING_PROFILES_ACTIVE: # stage,cloud
+
+cf-prod-app-manifest-params:
+  <<: *cf-app-manifest-params
+  MF_NAME:
+  MF_HOST:
+  MF_ENV:
+    <<: *cf-app-manifest-params-defaults
+    SPRING_PROFILES_ACTIVE: # prod,cloud
+
+## We assume the maven artifact id is the same as the project's git-repo-name
+maven:
+  group-id: # e.g., com.example
+  build:
+    opts: "" # If no opts are wanted, this must remain an empty string
+    config: "-s ../pipeline-tasks/maven/settings.xml"
+  milestone:
+    url: # URL of maven repository used for milestone releases
+    username: # Username for maven milestone releases repo !NOT ENCRYPTED YET!
+    password: # Password for maven milestone releases repo !NOT ENCRYPTED YET!
+    skip-ssl: false
+  release:
+    url: # Same as above, except for your release repo (non-RC versions of artifacts, like v2.0.5)
+    username:
+    password:
+    skip-ssl: false
+  mirror:
+    url: # https://repo.cf.com/repository/proxy
+    username:
+    password:
+    skip-ssl: false
+
+non_prod_cf_credentials: &non_prod_cf_credentials
+  api: # API URL for cloud foundry. e.g., https://api.system.cf.com
+  username: # Username for cloud foundry space !NOT ENCRYPTED YET!
+  password: # Password for cloud foundry space !NOT ENCRYPTED YET!
+  org: # PCF organization to deploy to
+  skip_cert_check: false
+
+prod_cf_credentials: &prod_cf_credentials
+  api: # Same as above, except for cloud foundry prod
+  username:
+  password:
+  org:
+  skip_cert_check: false
+
+cf:
+  dev:
+    <<: *non_prod_cf_credentials
+    space: # Name of space for dev. e.g., pipeline-dev
+  test:
+    <<: *non_prod_cf_credentials
+    space: # pipeline-test
+  stage:
+    <<: *prod_cf_credentials
+    space:
+  prod:
+    <<: *prod_cf_credentials
+    space:
+
+git:
+  org: # Name of organization your project is listed under
+  repo-name: # Name of the project's repository, e.g., example-rest
+  branch: # Branch of the project to build
+  private-key: |
+    -----BEGIN RSA PRIVATE KEY-----
+    MIIJe4r23rBAAKCasdfasdf2u0N+PQkXsEjrd5I5asdfasdfz0hw02ekZnORE
+    ...
+    fNasdfasdfasdfao9i8ujthrgqoT7Jymzj2OEv9asdfasdfXieOc35g==
+    -----END RSA PRIVATE KEY-----
+  repo-access-token: # Access token used for creating github releases
